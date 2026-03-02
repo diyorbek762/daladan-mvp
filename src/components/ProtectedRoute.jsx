@@ -26,7 +26,7 @@ export default function ProtectedRoute({ children, allowedRole }) {
                 .from('users')
                 .select('role, email, full_name')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
 
             setProfile(profileData);
             setLoading(false);

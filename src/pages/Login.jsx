@@ -41,8 +41,12 @@ export default function Login() {
                 .from('users')
                 .select('phone_number, role, email')
                 .eq('id', authData.user.id)
-                .single();
+                .maybeSingle();
             if (userError) throw userError;
+            if (!userData) {
+                await supabase.auth.signOut();
+                throw new Error('Profile not found. Please register first.');
+            }
 
             if (userData.phone_number !== form.phone) {
                 await supabase.auth.signOut();

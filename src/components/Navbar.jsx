@@ -15,7 +15,7 @@ export default function Navbar() {
                     .from('users')
                     .select('full_name, email, role, phone_number, region')
                     .eq('id', session.user.id)
-                    .single();
+                    .maybeSingle();
                 setProfile(data);
             }
         };
