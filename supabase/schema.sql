@@ -205,3 +205,29 @@ DO $$ BEGIN
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- 10. Auto-create user profile on signup (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.users (id, email, full_name, phone_number, region, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'phone_number', ''),
+    NULLIF(NEW.raw_user_meta_data->>'region', ''),
+    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'buyer')
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- Drop and recreate to avoid duplicate trigger error
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

@@ -43,23 +43,20 @@ export default function Register() {
         setServerError('');
 
         try {
-            // 1. Create auth user
+            // Create auth user with metadata — the DB trigger handles the users table insert
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: form.email,
                 password: form.password,
+                options: {
+                    data: {
+                        full_name: form.fullName,
+                        phone_number: form.phone,
+                        region: form.region || '',
+                        role: role,
+                    },
+                },
             });
             if (authError) throw authError;
-
-            // 2. Insert into users table
-            const { error: profileError } = await supabase.from('users').insert({
-                id: authData.user.id,
-                email: form.email,
-                full_name: form.fullName,
-                phone_number: form.phone,
-                region: form.region || null,
-                role: role,
-            });
-            if (profileError) throw profileError;
 
             navigate('/login', { state: { registered: true } });
         } catch (err) {
