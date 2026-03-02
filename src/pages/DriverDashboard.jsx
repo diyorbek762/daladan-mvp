@@ -45,7 +45,7 @@ export default function DriverDashboard() {
             const { data } = await supabase.from('orders')
                 .select('*, produce_listings(name, amount, display_location, seller_id, users(full_name, phone_number, region)), buyer:users!orders_buyer_id_fkey(full_name, phone_number, region)')
                 .eq('id', orderId)
-                .single();
+                .maybeSingle();
             if (data) setMyJobs([data, ...myJobs]);
         }
     };

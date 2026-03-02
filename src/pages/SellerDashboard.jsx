@@ -74,7 +74,7 @@ export default function SellerDashboard() {
             display_location: form.displayLocation || null,
         };
 
-        const { data, error } = await supabase.from('produce_listings').insert(row).select().single();
+        const { data, error } = await supabase.from('produce_listings').insert(row).select().maybeSingle();
         if (!error && data) {
             setListings([data, ...listings]);
             setForm({ name: '', amount: '', price: '', sellerDelivers: false, latitude: null, longitude: null, displayLocation: '' });
@@ -212,8 +212,8 @@ export default function SellerDashboard() {
                                         <div className="flex items-start justify-between gap-2">
                                             <h4 className="font-semibold">{req.name}</h4>
                                             <span className={`badge ${req.urgency_level === 'urgent' ? 'bg-red-500/20 text-red-400' :
-                                                    req.urgency_level === 'high' ? 'bg-orange-500/20 text-orange-400' :
-                                                        'bg-surface-700/50 text-surface-400'
+                                                req.urgency_level === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                                                    'bg-surface-700/50 text-surface-400'
                                                 }`}>
                                                 {req.urgency_level}
                                             </span>

@@ -28,7 +28,7 @@ export default function AdminDashboard() {
         const { data: profile } = await supabase.from('users')
             .select('email')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
         if (!profile || !ADMIN_EMAILS.includes(profile.email)) {
             window.location.href = '/login';
@@ -109,8 +109,8 @@ export default function AdminDashboard() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
-                                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'
-                                    : 'bg-surface-800/50 text-surface-400 hover:text-white hover:bg-surface-700/50 border border-surface-700/50'
+                                ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'
+                                : 'bg-surface-800/50 text-surface-400 hover:text-white hover:bg-surface-700/50 border border-surface-700/50'
                                 }`}
                         >
                             {tab.label}
@@ -166,9 +166,9 @@ export default function AdminDashboard() {
                                             <td className="py-3 px-4 text-surface-400">{u.phone_number}</td>
                                             <td className="py-3 px-4">
                                                 <span className={`badge ${u.role === 'farmer' ? 'bg-brand-500/20 text-brand-400' :
-                                                        u.role === 'buyer' ? 'bg-blue-500/20 text-blue-400' :
-                                                            u.role === 'driver' ? 'bg-purple-500/20 text-purple-400' :
-                                                                'bg-amber-500/20 text-amber-400'
+                                                    u.role === 'buyer' ? 'bg-blue-500/20 text-blue-400' :
+                                                        u.role === 'driver' ? 'bg-purple-500/20 text-purple-400' :
+                                                            'bg-amber-500/20 text-amber-400'
                                                     }`}>{u.role}</span>
                                             </td>
                                             <td className="py-3 px-4 text-surface-400">{u.region || '—'}</td>
