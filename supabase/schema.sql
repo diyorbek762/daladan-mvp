@@ -84,59 +84,69 @@ ALTER TABLE produce_listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE buyer_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
--- 8. RLS Policies
+-- 8. RLS Policies (drop-if-exists for idempotency)
 
--- USERS: Everyone can read users, but only self can update own row
+-- USERS
+DROP POLICY IF EXISTS "Users are viewable by authenticated users" ON users;
 CREATE POLICY "Users are viewable by authenticated users"
   ON users FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON users;
 CREATE POLICY "Users can insert their own profile"
   ON users FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON users;
 CREATE POLICY "Users can update their own profile"
   ON users FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- PRODUCE LISTINGS: All authenticated can read. Farmers can insert/update own.
+-- PRODUCE LISTINGS
+DROP POLICY IF EXISTS "Listings viewable by all authenticated" ON produce_listings;
 CREATE POLICY "Listings viewable by all authenticated"
   ON produce_listings FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Farmers can insert own listings" ON produce_listings;
 CREATE POLICY "Farmers can insert own listings"
   ON produce_listings FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = seller_id);
 
+DROP POLICY IF EXISTS "Farmers can update own listings" ON produce_listings;
 CREATE POLICY "Farmers can update own listings"
   ON produce_listings FOR UPDATE
   TO authenticated
   USING (auth.uid() = seller_id)
   WITH CHECK (auth.uid() = seller_id);
 
--- BUYER REQUESTS: All authenticated can read. Buyers can insert/update own.
+-- BUYER REQUESTS
+DROP POLICY IF EXISTS "Buyer requests viewable by all authenticated" ON buyer_requests;
 CREATE POLICY "Buyer requests viewable by all authenticated"
   ON buyer_requests FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Buyers can insert own requests" ON buyer_requests;
 CREATE POLICY "Buyers can insert own requests"
   ON buyer_requests FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = buyer_id);
 
+DROP POLICY IF EXISTS "Buyers can update own requests" ON buyer_requests;
 CREATE POLICY "Buyers can update own requests"
   ON buyer_requests FOR UPDATE
   TO authenticated
   USING (auth.uid() = buyer_id);
 
--- ORDERS: Involved parties + drivers can read/update.
+-- ORDERS
+DROP POLICY IF EXISTS "Orders viewable by involved parties" ON orders;
 CREATE POLICY "Orders viewable by involved parties"
   ON orders FOR SELECT
   TO authenticated
@@ -147,11 +157,13 @@ CREATE POLICY "Orders viewable by involved parties"
     OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'driver')
   );
 
+DROP POLICY IF EXISTS "Buyers can create orders" ON orders;
 CREATE POLICY "Buyers can create orders"
   ON orders FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = buyer_id);
 
+DROP POLICY IF EXISTS "Involved parties can update orders" ON orders;
 CREATE POLICY "Involved parties can update orders"
   ON orders FOR UPDATE
   TO authenticated
