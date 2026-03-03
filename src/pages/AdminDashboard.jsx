@@ -9,7 +9,7 @@ const ADMIN_EMAILS = [
 ];
 
 export default function AdminDashboard() {
-    const [stats, setStats] = useState({ dau: 0, activeProducts: 0, activeDeliveries: 0, totalUsers: 0 });
+    const [stats, setStats] = useState({ dau: 0, activeProducts: 0, activeDeliveries: 0, totalUsers: 0, totalDelivered: 0 });
     const [users, setUsers] = useState([]);
     const [listings, setListings] = useState([]);
     const [requests, setRequests] = useState([]);
@@ -20,6 +20,38 @@ export default function AdminDashboard() {
     useEffect(() => {
         fetchAll();
     }, []);
+
+    // Feature 5: Real-time subscription for orders
+    useEffect(() => {
+        const channel = supabase.channel('admin-orders-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
+                // Re-fetch stats when any order is updated
+                fetchStats();
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+                fetchStats();
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, []);
+
+    const fetchStats = async () => {
+        const [ordersActiveRes, ordersCompletedRes, listingsRes] = await Promise.all([
+            // Feature 3: Fixed — count both awaiting_driver AND driver_assigned
+            supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['awaiting_driver', 'driver_assigned']),
+            // Feature 3: New — count completed orders
+            supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+            supabase.from('produce_listings').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        ]);
+
+        setStats(prev => ({
+            ...prev,
+            activeDeliveries: ordersActiveRes.count || 0,
+            totalDelivered: ordersCompletedRes.count || 0,
+            activeProducts: listingsRes.count || 0,
+        }));
+    };
 
     const fetchAll = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -35,11 +67,14 @@ export default function AdminDashboard() {
             return;
         }
 
-        const [usersRes, listingsRes, requestsRes, ordersRes] = await Promise.all([
+        const [usersRes, listingsRes, requestsRes, ordersActiveRes, ordersCompletedRes] = await Promise.all([
             supabase.from('users').select('*').order('created_at', { ascending: false }),
             supabase.from('produce_listings').select('*, users(full_name)').eq('is_active', true).order('created_at', { ascending: false }),
             supabase.from('buyer_requests').select('*, users(full_name)').eq('is_active', true).order('created_at', { ascending: false }),
-            supabase.from('orders').select('*').eq('status', 'driver_assigned'),
+            // Feature 3: Fixed — include both statuses
+            supabase.from('orders').select('*').in('status', ['awaiting_driver', 'driver_assigned']),
+            // Feature 3: New — completed orders count
+            supabase.from('orders').select('*').eq('status', 'completed'),
         ]);
 
         const allUsers = usersRes.data || [];
@@ -53,8 +88,9 @@ export default function AdminDashboard() {
         setStats({
             dau,
             activeProducts: (listingsRes.data || []).length,
-            activeDeliveries: (ordersRes.data || []).length,
+            activeDeliveries: (ordersActiveRes.data || []).length,
             totalUsers: allUsers.length,
+            totalDelivered: (ordersCompletedRes.data || []).length,
         });
         setLoading(false);
     };
@@ -120,12 +156,13 @@ export default function AdminDashboard() {
 
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
                         {[
                             { label: 'Daily Active Users', value: stats.dau, icon: '👥', color: 'brand' },
                             { label: 'Total Users', value: stats.totalUsers, icon: '🌍', color: 'blue' },
                             { label: 'Active Products', value: stats.activeProducts, icon: '🌾', color: 'amber' },
                             { label: 'Active Deliveries', value: stats.activeDeliveries, icon: '🚛', color: 'purple' },
+                            { label: 'Total Delivered', value: stats.totalDelivered, icon: '✅', color: 'emerald' },
                         ].map((s) => (
                             <div key={s.label} className="card text-center">
                                 <p className="text-3xl mb-2">{s.icon}</p>

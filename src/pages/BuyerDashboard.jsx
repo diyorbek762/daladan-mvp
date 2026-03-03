@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 
 export default function BuyerDashboard() {
     const [products, setProducts] = useState([]);
+    const [purchaseHistory, setPurchaseHistory] = useState([]);
     const [sortOrder, setSortOrder] = useState('asc');
     const [loading, setLoading] = useState(true);
     const [showNeedModal, setShowNeedModal] = useState(false);
@@ -18,6 +19,41 @@ export default function BuyerDashboard() {
         fetchProducts();
     }, [sortOrder]);
 
+    useEffect(() => {
+        fetchPurchaseHistory();
+    }, []);
+
+    // Feature 5: Real-time subscription for produce_listings
+    useEffect(() => {
+        const channel = supabase.channel('buyer-listings-realtime')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'produce_listings' }, (payload) => {
+                (async () => {
+                    const { data } = await supabase.from('produce_listings')
+                        .select('*, users(full_name, region, phone_number)')
+                        .eq('id', payload.new.id)
+                        .maybeSingle();
+                    if (data && data.is_active) setProducts(prev => [data, ...prev]);
+                })();
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'produce_listings' }, (payload) => {
+                const updated = payload.new;
+                if (!updated.is_active || updated.amount <= 0) {
+                    setProducts(prev => prev.filter(p => p.id !== updated.id));
+                } else {
+                    (async () => {
+                        const { data } = await supabase.from('produce_listings')
+                            .select('*, users(full_name, region, phone_number)')
+                            .eq('id', updated.id)
+                            .maybeSingle();
+                        if (data) setProducts(prev => prev.map(p => p.id === data.id ? data : p));
+                    })();
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, []);
+
     const fetchProducts = async () => {
         setLoading(true);
         const { data } = await supabase
@@ -27,6 +63,17 @@ export default function BuyerDashboard() {
             .order('price', { ascending: sortOrder === 'asc' });
         setProducts(data || []);
         setLoading(false);
+    };
+
+    // Feature 4: Fetch purchase history
+    const fetchPurchaseHistory = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data } = await supabase.from('orders')
+            .select('*, produce_listings(name, price)')
+            .eq('buyer_id', session.user.id)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false });
+        setPurchaseHistory(data || []);
     };
 
     const submitNeed = async (e) => {
@@ -143,6 +190,45 @@ export default function BuyerDashboard() {
                         ))}
                     </div>
                 )}
+
+                {/* Feature 4: Purchase History */}
+                <section className="mt-12">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Purchase History
+                        <span className="badge bg-emerald-500/20 text-emerald-400 ml-2">{purchaseHistory.length}</span>
+                    </h2>
+                    {purchaseHistory.length === 0 ? (
+                        <div className="card text-center text-surface-400 py-12">
+                            <p className="text-4xl mb-2">🧾</p>
+                            <p>No completed purchases yet.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-surface-700">
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Product</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Qty</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Price/kg</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Total</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {purchaseHistory.map((order) => (
+                                        <tr key={order.id} className="border-b border-surface-800 hover:bg-surface-800/30 transition-colors">
+                                            <td className="py-3 px-4 font-medium">{order.produce_listings?.name || 'N/A'}</td>
+                                            <td className="py-3 px-4 text-surface-400">{order.quantity} kg</td>
+                                            <td className="py-3 px-4 text-surface-400">{order.produce_listings?.price ? Number(order.produce_listings.price).toLocaleString() + ' UZS' : '—'}</td>
+                                            <td className="py-3 px-4 text-brand-400 font-medium">{order.produce_listings?.price ? (Number(order.produce_listings.price) * Number(order.quantity)).toLocaleString() + ' UZS' : '—'}</td>
+                                            <td className="py-3 px-4 text-surface-400">{new Date(order.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
             </main>
             <Footer />
 

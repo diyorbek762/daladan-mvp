@@ -6,10 +6,12 @@ import Footer from '../components/Footer';
 export default function SellerDashboard() {
     const [listings, setListings] = useState([]);
     const [requests, setRequests] = useState([]);
+    const [salesHistory, setSalesHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [locLoading, setLocLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [userId, setUserId] = useState(null);
     const [form, setForm] = useState({
         name: '', amount: '', price: '', sellerDelivers: false,
         latitude: null, longitude: null, displayLocation: '',
@@ -19,12 +21,30 @@ export default function SellerDashboard() {
         fetchData();
     }, []);
 
+    // Feature 5: Real-time subscription for orders
+    useEffect(() => {
+        if (!userId) return;
+
+        const channel = supabase.channel('seller-orders-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+                if (payload.new.status === 'completed') {
+                    // Re-fetch sales history when an order is completed
+                    fetchSalesHistory(userId);
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [userId]);
+
     const fetchData = async () => {
         const { data: { session } } = await supabase.auth.getSession();
+        const uid = session.user.id;
+        setUserId(uid);
         const [listingsRes, requestsRes] = await Promise.all([
             supabase.from('produce_listings')
                 .select('*')
-                .eq('seller_id', session.user.id)
+                .eq('seller_id', uid)
                 .eq('is_active', true)
                 .order('created_at', { ascending: false }),
             supabase.from('buyer_requests')
@@ -35,7 +55,18 @@ export default function SellerDashboard() {
         ]);
         setListings(listingsRes.data || []);
         setRequests(requestsRes.data || []);
+        await fetchSalesHistory(uid);
         setLoading(false);
+    };
+
+    // Feature 4: Sales History via inner join
+    const fetchSalesHistory = async (sellerId) => {
+        const { data } = await supabase.from('orders')
+            .select('*, produce_listings!inner(name, price, seller_id), buyer:users!orders_buyer_id_fkey(full_name)')
+            .eq('produce_listings.seller_id', sellerId)
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false });
+        setSalesHistory(data || []);
     };
 
     const getLocation = () => {
@@ -232,6 +263,45 @@ export default function SellerDashboard() {
                         )}
                     </section>
                 </div>
+
+                {/* Feature 4: Sales History */}
+                <section className="mt-12">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> Sales History
+                        <span className="badge bg-emerald-500/20 text-emerald-400 ml-2">{salesHistory.length}</span>
+                    </h2>
+                    {salesHistory.length === 0 ? (
+                        <div className="card text-center text-surface-400 py-12">
+                            <p className="text-4xl mb-2">💰</p>
+                            <p>No completed sales yet.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-surface-700">
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Product</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Qty</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Price/kg</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Buyer</th>
+                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {salesHistory.map((order) => (
+                                        <tr key={order.id} className="border-b border-surface-800 hover:bg-surface-800/30 transition-colors">
+                                            <td className="py-3 px-4 font-medium">{order.produce_listings?.name || 'N/A'}</td>
+                                            <td className="py-3 px-4 text-surface-400">{order.quantity} kg</td>
+                                            <td className="py-3 px-4 text-brand-400">{order.produce_listings?.price ? Number(order.produce_listings.price).toLocaleString() + ' UZS' : '—'}</td>
+                                            <td className="py-3 px-4 text-surface-400">{order.buyer?.full_name || 'N/A'}</td>
+                                            <td className="py-3 px-4 text-surface-400">{new Date(order.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
             </main>
             <Footer />
         </div>

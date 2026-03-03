@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Login() {
@@ -9,6 +10,7 @@ export default function Login() {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [serverError, setServerError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const validatePhone = (phone) => /^\+998\d{9}$/.test(phone);
     const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -129,13 +131,22 @@ export default function Login() {
 
                         <div>
                             <label className="block text-sm font-medium text-surface-300 mb-1">Password</label>
-                            <input
-                                type="password"
-                                className="input-field"
-                                placeholder="Enter your password"
-                                value={form.password}
-                                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    className="input-field pr-10"
+                                    placeholder="Enter your password"
+                                    value={form.password}
+                                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-surface-400 hover:text-surface-200 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                             {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
                         </div>
 
