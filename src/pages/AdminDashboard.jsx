@@ -21,11 +21,10 @@ export default function AdminDashboard() {
         fetchAll();
     }, []);
 
-    // Feature 5: Real-time subscription for orders
+    // Real-time subscription for orders
     useEffect(() => {
         const channel = supabase.channel('admin-orders-realtime')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
-                // Re-fetch stats when any order is updated
                 fetchStats();
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
@@ -38,9 +37,7 @@ export default function AdminDashboard() {
 
     const fetchStats = async () => {
         const [ordersActiveRes, ordersCompletedRes, listingsRes] = await Promise.all([
-            // Feature 3: Fixed — count both awaiting_driver AND driver_assigned
             supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['awaiting_driver', 'driver_assigned']),
-            // Feature 3: New — count completed orders
             supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
             supabase.from('produce_listings').select('*', { count: 'exact', head: true }).eq('is_active', true),
         ]);
@@ -71,9 +68,7 @@ export default function AdminDashboard() {
             supabase.from('users').select('*').order('created_at', { ascending: false }),
             supabase.from('produce_listings').select('*, users(full_name)').eq('is_active', true).order('created_at', { ascending: false }),
             supabase.from('buyer_requests').select('*, users(full_name)').eq('is_active', true).order('created_at', { ascending: false }),
-            // Feature 3: Fixed — include both statuses
             supabase.from('orders').select('*').in('status', ['awaiting_driver', 'driver_assigned']),
-            // Feature 3: New — completed orders count
             supabase.from('orders').select('*').eq('status', 'completed'),
         ]);
 
@@ -96,13 +91,21 @@ export default function AdminDashboard() {
     };
 
     const trashListing = async (id) => {
-        await supabase.from('produce_listings').update({ is_active: false }).eq('id', id);
+        const { error } = await supabase.from('produce_listings').delete().eq('id', id);
+        if (error) {
+            alert('Delete failed: ' + error.message);
+            return;
+        }
         setListings(listings.filter(l => l.id !== id));
         setStats({ ...stats, activeProducts: stats.activeProducts - 1 });
     };
 
     const trashRequest = async (id) => {
-        await supabase.from('buyer_requests').update({ is_active: false }).eq('id', id);
+        const { error } = await supabase.from('buyer_requests').delete().eq('id', id);
+        if (error) {
+            alert('Delete failed: ' + error.message);
+            return;
+        }
         setRequests(requests.filter(r => r.id !== id));
     };
 
@@ -119,10 +122,10 @@ export default function AdminDashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col">
+            <div className="min-h-screen flex flex-col bg-gray-50">
                 <Navbar />
                 <div className="flex-1 flex items-center justify-center">
-                    <span className="animate-spin h-8 w-8 border-3 border-brand-500 border-t-transparent rounded-full" />
+                    <span className="animate-spin h-8 w-8 border-3 border-green-600 border-t-transparent rounded-full" />
                 </div>
                 <Footer />
             </div>
@@ -130,12 +133,12 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-gray-50">
             <Navbar />
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold">🛡️ Admin Dashboard</h1>
-                    <p className="text-surface-400 text-sm mt-1">Platform oversight & moderation</p>
+                    <h1 className="text-2xl font-bold text-gray-900">🛡️ Admin Dashboard</h1>
+                    <p className="text-gray-500 text-sm mt-1">Platform oversight & moderation</p>
                 </div>
 
                 {/* Tabs */}
@@ -145,8 +148,8 @@ export default function AdminDashboard() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
-                                ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'
-                                : 'bg-surface-800/50 text-surface-400 hover:text-white hover:bg-surface-700/50 border border-surface-700/50'
+                                ? 'bg-green-600 text-white shadow-md shadow-green-600/20'
+                                : 'bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-gray-200'
                                 }`}
                         >
                             {tab.label}
@@ -158,7 +161,7 @@ export default function AdminDashboard() {
                 {activeTab === 'overview' && (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
                         {[
-                            { label: 'Daily Active Users', value: stats.dau, icon: '👥', color: 'brand' },
+                            { label: 'Daily Active Users', value: stats.dau, icon: '👥', color: 'green' },
                             { label: 'Total Users', value: stats.totalUsers, icon: '🌍', color: 'blue' },
                             { label: 'Active Products', value: stats.activeProducts, icon: '🌾', color: 'amber' },
                             { label: 'Active Deliveries', value: stats.activeDeliveries, icon: '🚛', color: 'purple' },
@@ -166,8 +169,8 @@ export default function AdminDashboard() {
                         ].map((s) => (
                             <div key={s.label} className="card text-center">
                                 <p className="text-3xl mb-2">{s.icon}</p>
-                                <p className={`text-3xl font-bold text-${s.color}-400`}>{s.value}</p>
-                                <p className="text-sm text-surface-400 mt-1">{s.label}</p>
+                                <p className={`text-3xl font-bold text-${s.color}-600`}>{s.value}</p>
+                                <p className="text-sm text-gray-500 mt-1">{s.label}</p>
                             </div>
                         ))}
                     </div>
@@ -184,37 +187,37 @@ export default function AdminDashboard() {
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto card p-0">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-surface-700">
-                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Name</th>
-                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Email</th>
-                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Phone</th>
-                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Role</th>
-                                        <th className="text-left py-3 px-4 text-surface-400 font-medium">Region</th>
+                                    <tr className="border-b border-gray-200">
+                                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Name</th>
+                                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Email</th>
+                                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Phone</th>
+                                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Role</th>
+                                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Region</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredUsers.map((u) => (
-                                        <tr key={u.id} className="border-b border-surface-800 hover:bg-surface-800/30 transition-colors">
-                                            <td className="py-3 px-4 font-medium">{u.full_name}</td>
-                                            <td className="py-3 px-4 text-surface-400">{u.email}</td>
-                                            <td className="py-3 px-4 text-surface-400">{u.phone_number}</td>
+                                        <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <td className="py-3 px-4 font-medium text-gray-900">{u.full_name}</td>
+                                            <td className="py-3 px-4 text-gray-500">{u.email}</td>
+                                            <td className="py-3 px-4 text-gray-500">{u.phone_number}</td>
                                             <td className="py-3 px-4">
-                                                <span className={`badge ${u.role === 'farmer' ? 'bg-brand-500/20 text-brand-400' :
-                                                    u.role === 'buyer' ? 'bg-blue-500/20 text-blue-400' :
-                                                        u.role === 'driver' ? 'bg-purple-500/20 text-purple-400' :
-                                                            'bg-amber-500/20 text-amber-400'
+                                                <span className={`badge ${u.role === 'farmer' ? 'bg-green-100 text-green-700' :
+                                                    u.role === 'buyer' ? 'bg-blue-100 text-blue-700' :
+                                                        u.role === 'driver' ? 'bg-purple-100 text-purple-700' :
+                                                            'bg-amber-100 text-amber-700'
                                                     }`}>{u.role}</span>
                                             </td>
-                                            <td className="py-3 px-4 text-surface-400">{u.region || '—'}</td>
+                                            <td className="py-3 px-4 text-gray-500">{u.region || '—'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                             {filteredUsers.length === 0 && (
-                                <p className="text-center text-surface-500 py-8">No users found.</p>
+                                <p className="text-center text-gray-400 py-8">No users found.</p>
                             )}
                         </div>
                     </div>
@@ -225,16 +228,16 @@ export default function AdminDashboard() {
                     <div className="grid gap-8 lg:grid-cols-2 animate-fade-in">
                         {/* Listings */}
                         <section>
-                            <h2 className="text-lg font-semibold mb-4">Active Listings ({listings.length})</h2>
+                            <h2 className="text-lg font-semibold mb-4 text-gray-900">Active Listings ({listings.length})</h2>
                             {listings.length === 0 ? (
-                                <div className="card text-center text-surface-400 py-8">No active listings.</div>
+                                <div className="card text-center text-gray-400 py-8">No active listings.</div>
                             ) : (
                                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                                     {listings.map(l => (
                                         <div key={l.id} className="card p-4 flex items-center justify-between gap-3">
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium truncate">{l.name}</h4>
-                                                <p className="text-xs text-surface-500">by {l.users?.full_name} · {Number(l.price).toLocaleString()} UZS</p>
+                                                <h4 className="font-medium text-gray-900 truncate">{l.name}</h4>
+                                                <p className="text-xs text-gray-500">by {l.users?.full_name} · {Number(l.price).toLocaleString()} UZS</p>
                                             </div>
                                             <button onClick={() => trashListing(l.id)} className="btn-danger text-xs py-1.5 px-3 shrink-0">
                                                 🗑️ Trash
@@ -247,16 +250,16 @@ export default function AdminDashboard() {
 
                         {/* Buyer Requests */}
                         <section>
-                            <h2 className="text-lg font-semibold mb-4">Buyer Requests ({requests.length})</h2>
+                            <h2 className="text-lg font-semibold mb-4 text-gray-900">Buyer Requests ({requests.length})</h2>
                             {requests.length === 0 ? (
-                                <div className="card text-center text-surface-400 py-8">No active requests.</div>
+                                <div className="card text-center text-gray-400 py-8">No active requests.</div>
                             ) : (
                                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                                     {requests.map(r => (
                                         <div key={r.id} className="card p-4 flex items-center justify-between gap-3">
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium truncate">{r.name}</h4>
-                                                <p className="text-xs text-surface-500">
+                                                <h4 className="font-medium text-gray-900 truncate">{r.name}</h4>
+                                                <p className="text-xs text-gray-500">
                                                     by {r.users?.full_name} · {r.urgency_level}
                                                     {r.max_price && ` · Max ${Number(r.max_price).toLocaleString()} UZS`}
                                                 </p>

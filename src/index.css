@@ -6,33 +6,33 @@
 
 @layer base {
   body {
-    @apply bg-surface-950 text-surface-100 font-sans antialiased;
+    @apply bg-gray-50 text-gray-900 font-sans antialiased;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-brand-600 hover:bg-brand-500 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95 shadow-lg shadow-brand-600/20;
+    @apply bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95 shadow-md shadow-green-600/20;
   }
 
   .btn-secondary {
-    @apply bg-surface-800 hover:bg-surface-700 text-surface-100 font-medium py-2.5 px-5 rounded-xl border border-surface-700 transition-all duration-200 active:scale-95;
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-5 rounded-xl border border-gray-300 transition-all duration-200 active:scale-95;
   }
 
   .btn-danger {
-    @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 font-medium py-2 px-4 rounded-xl border border-red-500/20 transition-all duration-200 active:scale-95;
+    @apply bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 px-4 rounded-xl border border-red-200 transition-all duration-200 active:scale-95;
   }
 
   .card {
-    @apply bg-surface-900/80 backdrop-blur-sm border border-surface-700/50 rounded-2xl p-6 shadow-xl shadow-black/10;
+    @apply bg-white border border-gray-200 rounded-2xl p-6 shadow-sm;
   }
 
   .input-field {
-    @apply w-full bg-surface-800/50 border border-surface-700 rounded-xl px-4 py-3 text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-200;
+    @apply w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-all duration-200;
   }
 
   .select-field {
-    @apply w-full bg-surface-800/50 border border-surface-700 rounded-xl px-4 py-3 text-surface-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-200 appearance-none;
+    @apply w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-all duration-200 appearance-none;
   }
 
   .badge {
@@ -40,7 +40,7 @@
   }
 
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    @apply bg-white/80 backdrop-blur-md border border-gray-200;
   }
 }
 
@@ -54,11 +54,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-surface-700 rounded-full;
+  @apply bg-gray-300 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-surface-600;
+  @apply bg-gray-400;
 }
 
 /* Animations */
