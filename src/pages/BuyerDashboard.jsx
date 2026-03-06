@@ -77,7 +77,7 @@ export default function BuyerDashboard() {
                 if (payload.new.buyer_id === userId && payload.new.request_id) {
                     (async () => {
                         const { data } = await supabase.from('orders')
-                            .select('*')
+                            .select('*, driver:users!orders_driver_id_fkey(full_name, phone_number)')
                             .eq('id', payload.new.id)
                             .maybeSingle();
                         if (data) setMyOrders(prev => [data, ...prev]);
@@ -117,9 +117,16 @@ export default function BuyerDashboard() {
                     })();
                 } else {
                     // Update status in myOrders (e.g. awaiting_driver → driver_assigned)
-                    setMyOrders(prev => prev.map(o =>
-                        o.id === updated.id ? { ...o, status: updated.status, driver_id: updated.driver_id } : o
-                    ));
+                    // Re-fetch with driver join to get driver phone number
+                    (async () => {
+                        const { data } = await supabase.from('orders')
+                            .select('*, driver:users!orders_driver_id_fkey(full_name, phone_number)')
+                            .eq('id', updated.id)
+                            .maybeSingle();
+                        if (data) {
+                            setMyOrders(prev => prev.map(o => o.id === data.id ? data : o));
+                        }
+                    })();
                 }
             })
             .subscribe();
@@ -149,10 +156,10 @@ export default function BuyerDashboard() {
         ]);
     };
 
-    // Fetch buyer's active (non-completed) orders
+    // Fetch buyer's active (non-completed) orders — join driver info for phone number display
     const fetchMyOrders = async (uid) => {
         const { data } = await supabase.from('orders')
-            .select('*')
+            .select('*, driver:users!orders_driver_id_fkey(full_name, phone_number)')
             .eq('buyer_id', uid)
             .in('status', ['pending', 'awaiting_driver', 'driver_assigned'])
             .order('created_at', { ascending: false });
@@ -200,9 +207,9 @@ export default function BuyerDashboard() {
         setSubmitting(false);
     };
 
-    // Buyer fulfills / closes their own need
+    // Buyer fulfills / closes their own need (soft-delete to preserve referential integrity)
     const fulfillNeed = async (requestId) => {
-        const { error } = await supabase.from('buyer_requests').delete().eq('id', requestId);
+        const { error } = await supabase.from('buyer_requests').update({ is_active: false }).eq('id', requestId);
         if (!error) {
             setMyNeeds(myNeeds.filter(n => n.id !== requestId));
         }
@@ -373,6 +380,58 @@ export default function BuyerDashboard() {
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </section>
+
+                {/* My Active Orders (Jarayondagi buyurtmalar) */}
+                <section className="mt-12">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" /> My Active Orders
+                        <span className="badge bg-blue-100 text-blue-700 ml-2">{myOrders.length}</span>
+                    </h2>
+                    {myOrders.length === 0 ? (
+                        <div className="card text-center text-gray-400 py-12">
+                            <p className="text-4xl mb-2">📭</p>
+                            <p>No active orders right now. Buy a product or announce a new need to get started!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {myOrders.map((order) => {
+                                const isDriverAssigned = order.status === 'driver_assigned';
+                                const statusBadge = isDriverAssigned
+                                    ? { label: '🔵 Driver on the way', bg: 'bg-blue-100', color: 'text-blue-700' }
+                                    : order.status === 'pending'
+                                        ? { label: '⏳ Pending', bg: 'bg-gray-100', color: 'text-gray-600' }
+                                        : { label: '🟡 Awaiting Driver', bg: 'bg-amber-100', color: 'text-amber-700' };
+                                const typeBadge = order.request_id
+                                    ? { label: '📢 Need', bg: 'bg-amber-50', color: 'text-amber-700' }
+                                    : { label: '🌾 Product', bg: 'bg-green-50', color: 'text-green-700' };
+                                return (
+                                    <div key={order.id} className={`card p-4 animate-fade-in ${isDriverAssigned ? 'border-blue-200' : 'border-amber-200'}`}>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <h4 className="font-semibold text-gray-900">{order.item_name || 'N/A'}</h4>
+                                                    <span className={`badge text-xs ${statusBadge.bg} ${statusBadge.color}`}>{statusBadge.label}</span>
+                                                    <span className={`badge text-xs ${typeBadge.bg} ${typeBadge.color}`}>{typeBadge.label}</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <span className="badge bg-gray-100 text-gray-600">{order.quantity} kg</span>
+                                                    <span className="badge bg-gray-100 text-gray-500">{new Date(order.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                                {isDriverAssigned && order.driver && (
+                                                    <div className="bg-blue-50 rounded-xl p-3 border border-blue-200 mt-3">
+                                                        <p className="text-xs text-blue-500 uppercase tracking-wider mb-1">Driver</p>
+                                                        <p className="text-sm font-medium text-gray-900">{order.driver.full_name}</p>
+                                                        <p className="text-sm text-blue-600">{order.driver.phone_number || 'N/A'}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </section>

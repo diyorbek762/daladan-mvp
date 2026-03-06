@@ -7,6 +7,7 @@ export default function SellerDashboard() {
     const [listings, setListings] = useState([]);
     const [requests, setRequests] = useState([]);
     const [pendingDeliveries, setPendingDeliveries] = useState([]);
+    const [activeSales, setActiveSales] = useState([]);
     const [salesHistory, setSalesHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -40,10 +41,23 @@ export default function SellerDashboard() {
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+                if (payload.new.seller_id !== userId) return;
                 if (payload.new.status === 'completed') {
-                    // Move from pending → sales history
+                    // Move from pending/active → sales history
                     setPendingDeliveries(prev => prev.filter(o => o.id !== payload.new.id));
+                    setActiveSales(prev => prev.filter(o => o.id !== payload.new.id));
                     fetchSalesHistory(userId);
+                } else if (payload.new.status === 'driver_assigned') {
+                    // Update status badge in activeSales — re-fetch for driver join
+                    (async () => {
+                        const { data } = await supabase.from('orders')
+                            .select('*, buyer:users!orders_buyer_id_fkey(full_name, phone_number, region), driver:users!orders_driver_id_fkey(full_name, phone_number)')
+                            .eq('id', payload.new.id)
+                            .maybeSingle();
+                        if (data) {
+                            setActiveSales(prev => prev.map(o => o.id === data.id ? data : o));
+                        }
+                    })();
                 }
             })
             .subscribe();
@@ -89,8 +103,18 @@ export default function SellerDashboard() {
         setListings(listingsRes.data || []);
         setRequests(requestsRes.data || []);
         setPendingDeliveries(pendingRes.data || []);
-        await fetchSalesHistory(uid);
+        await Promise.all([fetchActiveSales(uid), fetchSalesHistory(uid)]);
         setLoading(false);
+    };
+
+    // Active Deliveries — all in-progress orders for this seller (both product-based and need-based)
+    const fetchActiveSales = async (sellerId) => {
+        const { data } = await supabase.from('orders')
+            .select('*, buyer:users!orders_buyer_id_fkey(full_name, phone_number, region), driver:users!orders_driver_id_fkey(full_name, phone_number)')
+            .eq('seller_id', sellerId)
+            .in('status', ['awaiting_driver', 'driver_assigned'])
+            .order('created_at', { ascending: false });
+        setActiveSales(data || []);
     };
 
     // Sales History — includes all completed orders for this seller
@@ -175,6 +199,20 @@ export default function SellerDashboard() {
         }
 
         setRequests(requests.filter(r => r.id !== request.id));
+        // Optimistically add to activeSales
+        setActiveSales(prev => [{
+            id: crypto.randomUUID(),
+            buyer_id: request.buyer_id,
+            seller_id: userId,
+            request_id: request.id,
+            item_name: request.name,
+            status: 'awaiting_driver',
+            delivery_method: 'network_driver',
+            quantity: request.quantity || 1,
+            created_at: new Date().toISOString(),
+            buyer: request.users ? { full_name: request.users.full_name, phone_number: request.users.phone_number, region: request.users.region } : null,
+            driver: null,
+        }, ...prev]);
         setFulfillingId(null);
     };
 
@@ -391,6 +429,64 @@ export default function SellerDashboard() {
                         )}
                     </section>
                 </div>
+
+                {/* Active Deliveries / In Progress */}
+                <section className="mt-8">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" /> Active Deliveries
+                        <span className="badge bg-amber-100 text-amber-700 ml-2">{activeSales.length}</span>
+                    </h2>
+                    {activeSales.length === 0 ? (
+                        <div className="card text-center text-gray-400 py-12">
+                            <p className="text-4xl mb-2">🚚</p>
+                            <p>No active deliveries in progress. Add a new product to your inventory or fulfill a market need to start earning!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {activeSales.map((order) => {
+                                const isDriverAssigned = order.status === 'driver_assigned';
+                                const statusBadge = isDriverAssigned
+                                    ? { label: '🔵 Driver Assigned', bg: 'bg-blue-100', color: 'text-blue-700' }
+                                    : { label: '🟡 Awaiting Driver', bg: 'bg-amber-100', color: 'text-amber-700' };
+                                const typeBadge = order.request_id
+                                    ? { label: '📢 Need', bg: 'bg-amber-50', color: 'text-amber-700' }
+                                    : { label: '🌾 Product', bg: 'bg-green-50', color: 'text-green-700' };
+                                return (
+                                    <div key={order.id} className={`card p-4 animate-fade-in ${isDriverAssigned ? 'border-blue-200' : 'border-amber-200'}`}>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <h4 className="font-semibold text-gray-900">{order.item_name || 'N/A'}</h4>
+                                                    <span className={`badge text-xs ${statusBadge.bg} ${statusBadge.color}`}>{statusBadge.label}</span>
+                                                    <span className={`badge text-xs ${typeBadge.bg} ${typeBadge.color}`}>{typeBadge.label}</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <span className="badge bg-gray-100 text-gray-600">{order.quantity} kg</span>
+                                                    <span className="badge bg-gray-100 text-gray-500">{new Date(order.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                                {order.buyer && (
+                                                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 mt-3">
+                                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Buyer</p>
+                                                        <p className="text-sm font-medium text-gray-900">{order.buyer.full_name}</p>
+                                                        <p className="text-sm text-green-600">{order.buyer.phone_number || 'N/A'}</p>
+                                                        {order.buyer.region && <p className="text-xs text-gray-500">{order.buyer.region}</p>}
+                                                    </div>
+                                                )}
+                                                {isDriverAssigned && order.driver && (
+                                                    <div className="bg-blue-50 rounded-xl p-3 border border-blue-200 mt-3">
+                                                        <p className="text-xs text-blue-500 uppercase tracking-wider mb-1">Driver</p>
+                                                        <p className="text-sm font-medium text-gray-900">{order.driver.full_name}</p>
+                                                        <p className="text-sm text-blue-600">{order.driver.phone_number || 'N/A'}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
 
                 {/* Sales History */}
                 <section className="mt-12">

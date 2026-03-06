@@ -213,6 +213,7 @@ CREATE POLICY "Involved parties can update orders"
   TO authenticated
   USING (
     auth.uid() = buyer_id
+    OR auth.uid() = seller_id
     OR auth.uid() = driver_id
     OR EXISTS (
       SELECT 1 FROM users WHERE id = auth.uid()
@@ -279,7 +280,8 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'phone_number', ''),
     NULLIF(NEW.raw_user_meta_data->>'region', ''),
     COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'buyer')
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$;
