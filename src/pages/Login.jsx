@@ -68,22 +68,9 @@ export default function Login() {
                 throw new Error('Profile not found. Please register first.');
             }
 
-            // 3. Route based on role or admin email
-            const ADMIN_EMAILS = [
-                'dedamirzayevdiyorbek9@gmail.com',
-                'gulomovtop@gmail.com',
-            ];
-
-            if (ADMIN_EMAILS.includes(userData.email)) {
-                navigate('/admin-dashboard');
-            } else {
-                const roleRoutes = {
-                    farmer: '/seller-dashboard',
-                    buyer: '/buyer-dashboard',
-                    driver: '/driver-dashboard',
-                };
-                navigate(roleRoutes[userData.role] || '/login');
-            }
+            // Route through Telegram verification interceptor.
+            // It will check for telegram_id and then redirect to the correct dashboard.
+            navigate('/verify-telegram');
         } catch (err) {
             setServerError(err.message || 'Login failed. Please try again.');
         } finally {

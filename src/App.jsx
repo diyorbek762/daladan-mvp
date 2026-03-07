@@ -6,6 +6,7 @@ import SellerDashboard from './pages/SellerDashboard';
 import BuyerDashboard from './pages/BuyerDashboard';
 import DriverDashboard from './pages/DriverDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import TelegramVerificationInterceptor from './pages/TelegramVerificationInterceptor';
 import ProtectedRoute from './components/ProtectedRoute';
 import Footer from './components/Footer';
 
@@ -55,6 +56,14 @@ export default function App() {
             <ProtectedRoute allowedRole="admin">
               <AdminDashboard />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/verify-telegram"
+          element={
+            <AuthLayout>
+              <TelegramVerificationInterceptor />
+            </AuthLayout>
           }
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
