@@ -86,7 +86,7 @@ export default function TelegramVerificationInterceptor() {
         const script = document.createElement('script');
         script.src = 'https://telegram.org/js/telegram-widget.js?22';
         script.async = true;
-        script.setAttribute('data-telegram-login', TELEGRAM_BOT_USERNAME);
+        script.setAttribute('data-telegram-login', 'daladan_official_bot');
         script.setAttribute('data-size', 'large');
         script.setAttribute('data-radius', '12');
         script.setAttribute('data-request-access', 'write');
