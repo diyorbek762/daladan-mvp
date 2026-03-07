@@ -110,30 +110,41 @@ export default function TelegramVerificationInterceptor() {
         setStatus('verifying');
         setError('');
 
+        console.log('[TelegramAuth] Raw telegramUser from widget:', telegramUser);
+
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Session expired. Please log in again.');
 
-            const res = await fetch(`${BACKEND_URL}/api/verify-telegram`, {
+            console.log('[TelegramAuth] Supabase user ID:', session.user.id);
+
+            const payload = {
+                telegramData: telegramUser,
+                supabaseUserId: session.user.id,
+            };
+
+            console.log('[TelegramAuth] Sending payload:', JSON.stringify(payload, null, 2));
+
+            const res = await fetch('/api/verify-telegram', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`,
                 },
-                body: JSON.stringify({
-                    telegramData: telegramUser,
-                    supabaseUserId: session.user.id,
-                }),
+                body: JSON.stringify(payload),
             });
 
+            const responseBody = await res.json().catch(() => ({}));
+            console.log('[TelegramAuth] Response status:', res.status, responseBody);
+
             if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.detail || body.error || `Verification failed (${res.status})`);
+                throw new Error(responseBody.detail || responseBody.error || `Verification failed (${res.status})`);
             }
 
             // Optimistic redirect — backend already wrote the telegram_id
             navigate(getDashboardRoute(profile), { replace: true });
         } catch (err) {
+            console.error('[TelegramAuth] Error:', err);
             setError(err.message);
             setStatus('error');
         }
