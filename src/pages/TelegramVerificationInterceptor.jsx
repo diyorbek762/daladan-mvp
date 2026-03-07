@@ -120,7 +120,10 @@ export default function TelegramVerificationInterceptor() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`,
                 },
-                body: JSON.stringify(telegramUser),
+                body: JSON.stringify({
+                    telegramData: telegramUser,
+                    supabaseUserId: session.user.id,
+                }),
             });
 
             if (!res.ok) {
