@@ -181,22 +181,13 @@ export default function TelegramVerificationInterceptor() {
                                     Link Your Telegram
                                 </h2>
                                 <p className="text-gray-500 text-sm leading-relaxed">
-                                    To receive order notifications and communicate with buyers,
-                                    please connect your Telegram account.
+                                    Linking your Telegram account is required to use Daladan.
+                                    This lets you receive order notifications and communicate with buyers.
                                 </p>
                             </div>
 
                             {/* Telegram widget injects its button here */}
                             <div ref={widgetRef} className="flex justify-center" />
-
-                            <button
-                                onClick={() => {
-                                    if (profile) navigate(getDashboardRoute(profile), { replace: true });
-                                }}
-                                className="text-sm text-gray-400 hover:text-gray-600 transition-colors underline"
-                            >
-                                Skip for now
-                            </button>
                         </div>
                     )}
 
@@ -214,22 +205,12 @@ export default function TelegramVerificationInterceptor() {
                             <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm w-full text-center">
                                 {error}
                             </div>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setStatus('widget')}
-                                    className="btn-primary text-sm px-5 py-2"
-                                >
-                                    Try Again
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (profile) navigate(getDashboardRoute(profile), { replace: true });
-                                    }}
-                                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors underline"
-                                >
-                                    Skip for now
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setStatus('widget')}
+                                className="btn-primary text-sm px-5 py-2"
+                            >
+                                Try Again
+                            </button>
                         </div>
                     )}
                 </div>
