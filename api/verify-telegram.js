@@ -111,6 +111,14 @@ export default async function handler(req, res) {
 
         if (updateErr) {
             console.error("Supabase UPDATE error:", updateErr);
+
+            // Unique constraint violation → telegram_id already linked to another account
+            if (updateErr.code === "23505") {
+                return res.status(409).json({
+                    error: "This Telegram account is already linked to another Daladan account.",
+                });
+            }
+
             return res.status(500).json({ error: "Failed to save Telegram data." });
         }
 
