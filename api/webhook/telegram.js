@@ -4,7 +4,8 @@
  * POST /api/webhook/telegram
  *
  * Receives updates pushed by the Telegram Bot API, handles `/start`,
- * links telegram_id in public.users, and replies via the Telegram HTTP API.
+ * generates a 6-digit OTP, stores it in `telegram_otps`, and sends
+ * the code back to the user via Telegram.
  *
  * Environment variables required (set in Vercel Dashboard → Settings → Env Vars):
  *   TELEGRAM_BOT_TOKEN
@@ -12,6 +13,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY   (service role, NOT anon — bypasses RLS)
  */
 
+import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 // ──────────────────────────────────────────────────────────────
@@ -49,58 +51,45 @@ async function sendMessage(chatId, text) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// /start handler
+// /start handler — generate OTP and send to user
 // ──────────────────────────────────────────────────────────────
 
 async function handleStart(chatId, telegramId, firstName) {
     try {
-        // 1. Look up the user by telegram_id
-        const { data: user, error: selectErr } = await supabase
-            .from("users")
-            .select("id, full_name, is_bot_started")
-            .eq("telegram_id", telegramId)
-            .maybeSingle();
+        // 1. Generate a cryptographically secure 6-digit code
+        const code = String(crypto.randomInt(100000, 999999));
 
-        if (selectErr) {
-            console.error("Supabase SELECT error:", selectErr);
+        // 2. Upsert into telegram_otps (one active OTP per telegram_id)
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+        const { error: upsertErr } = await supabase
+            .from("telegram_otps")
+            .upsert(
+                {
+                    telegram_id: telegramId,
+                    first_name: firstName || null,
+                    code,
+                    expires_at: expiresAt,
+                },
+                { onConflict: "telegram_id" }
+            );
+
+        if (upsertErr) {
+            console.error("Supabase UPSERT error:", upsertErr);
             await sendMessage(
                 chatId,
-                "⚠️ Sorry, we're having trouble reaching the database. Please try again shortly."
+                "⚠️ Sorry, we're having trouble generating your code. Please try again shortly."
             );
             return;
         }
 
-        // 2a. User NOT found
-        if (!user) {
-            await sendMessage(
-                chatId,
-                `👋 Welcome, ${firstName || "there"}!\n\n` +
-                "We don't recognize this account yet. " +
-                "Please log in to the <b>Daladan</b> website first to link your Telegram.\n\n" +
-                "Once linked, come back and press /start again."
-            );
-            return;
-        }
-
-        // 2b. User found → flip is_bot_started
-        if (!user.is_bot_started) {
-            const { error: updateErr } = await supabase
-                .from("users")
-                .update({ is_bot_started: true })
-                .eq("telegram_id", telegramId);
-
-            if (updateErr) {
-                console.error("Supabase UPDATE error:", updateErr);
-                // Non-fatal — still greet the user
-            }
-        }
-
-        const name = user.full_name || firstName || "there";
+        // 3. Send the code to the user via Telegram
         await sendMessage(
             chatId,
-            `✅ Welcome to <b>Daladan</b>, ${name}!\n\n` +
-            "Your account is successfully linked. " +
-            "You will receive your logistics and harvest updates here."
+            `👋 <b>Welcome to Daladan!</b>\n\n` +
+            `Your login code is: <code>${code}</code>\n\n` +
+            `This code expires in <b>5 minutes</b>.\n\n` +
+            `Enter this code on the Daladan website to sign in.`
         );
     } catch (err) {
         console.error("handleStart error:", err);

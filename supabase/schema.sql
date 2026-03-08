@@ -346,3 +346,19 @@ CREATE POLICY "Admins can delete buyer requests"
         AND email IN ('dedamirzayevdiyorbek9@gmail.com', 'gulomovtop@gmail.com')
     )
   );
+
+-- 13. Telegram OTP table (passwordless auth via bot)
+CREATE TABLE IF NOT EXISTS telegram_otps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  telegram_id BIGINT NOT NULL,
+  first_name TEXT,
+  code TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_otps_telegram_id ON telegram_otps(telegram_id);
+CREATE INDEX IF NOT EXISTS idx_telegram_otps_code ON telegram_otps(code);
+
+ALTER TABLE telegram_otps ENABLE ROW LEVEL SECURITY;
+-- No RLS policies for authenticated/anon — only the service role key can access this table.
