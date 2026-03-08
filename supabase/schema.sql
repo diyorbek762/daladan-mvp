@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
   phone_number TEXT UNIQUE NOT NULL,
   region TEXT,
   role user_role NOT NULL DEFAULT 'buyer',
+  telegram_id BIGINT,
+  telegram_username TEXT,
+  telegram_first_name TEXT,
+  is_bot_started BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
