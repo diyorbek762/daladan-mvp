@@ -1,10 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import SellerDashboard from './pages/SellerDashboard';
 import BuyerDashboard from './pages/BuyerDashboard';
 import DriverDashboard from './pages/DriverDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import TelegramVerificationInterceptor from './pages/TelegramVerificationInterceptor';
 import ProtectedRoute from './components/ProtectedRoute';
 import Footer from './components/Footer';
 
@@ -23,9 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
-        {/* /register and /verify-telegram redirect to login (OTP-based now) */}
-        <Route path="/register" element={<Navigate to="/login" replace />} />
-        <Route path="/verify-telegram" element={<Navigate to="/login" replace />} />
+        <Route path="/register" element={<AuthLayout><Register /></AuthLayout>} />
         <Route
           path="/seller-dashboard"
           element={
@@ -56,6 +56,14 @@ export default function App() {
             <ProtectedRoute allowedRole="admin">
               <AdminDashboard />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/verify-telegram"
+          element={
+            <AuthLayout>
+              <TelegramVerificationInterceptor />
+            </AuthLayout>
           }
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
