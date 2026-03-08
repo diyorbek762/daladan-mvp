@@ -54,7 +54,7 @@ async function sendMessage(chatId, text) {
 // /start handler — generate OTP and send to user
 // ──────────────────────────────────────────────────────────────
 
-async function handleStart(chatId, telegramId, firstName) {
+async function handleStart(chatId, telegramId, firstName, username) {
     try {
         // 1. Generate a cryptographically secure 6-digit code
         const code = String(crypto.randomInt(100000, 999999));
@@ -68,6 +68,7 @@ async function handleStart(chatId, telegramId, firstName) {
                 {
                     telegram_id: telegramId,
                     first_name: firstName || null,
+                    telegram_username: username || null,
                     code,
                     expires_at: expiresAt,
                 },
@@ -123,9 +124,10 @@ export default async function handler(req, res) {
         const text = (message.text || "").trim();
         const telegramId = message.from.id;
         const firstName = message.from.first_name || "";
+        const username = message.from.username || null;
 
         if (text === "/start" || text.startsWith("/start ")) {
-            await handleStart(chatId, telegramId, firstName);
+            await handleStart(chatId, telegramId, firstName, username);
         }
 
         // Always return 200 to Telegram — otherwise it retries

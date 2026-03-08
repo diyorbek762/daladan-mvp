@@ -352,6 +352,7 @@ CREATE TABLE IF NOT EXISTS telegram_otps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   telegram_id BIGINT NOT NULL,
   first_name TEXT,
+  telegram_username TEXT,
   code TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

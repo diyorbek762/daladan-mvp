@@ -73,6 +73,7 @@ export default async function handler(req, res) {
             .update({
                 telegram_id: otpRow.telegram_id,
                 telegram_first_name: otpRow.first_name || null,
+                telegram_username: otpRow.telegram_username || null,
                 is_bot_started: true,
             })
             .eq("id", supabaseUserId);
